@@ -1,4 +1,4 @@
-# glfw
+# fmt
 find_package(fmt CONFIG REQUIRED)
 
 # glfw
@@ -10,7 +10,7 @@ find_package(imgui CONFIG REQUIRED)
 # cuda toolkit
 find_package(CUDAToolkit REQUIRED)
 
-# cuda toolkit
+# optix
 find_package(OptiX REQUIRED)
 
 configure_file(

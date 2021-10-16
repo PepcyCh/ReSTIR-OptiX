@@ -17,8 +17,7 @@ static __device__ void SampleLight(
     pcm::Vec3 &light_norm,
     pcm::Vec3 &light_strength,
     float &light_dist,
-    float &sample_pdf,
-    float &light_attenuation
+    float &sample_pdf
 ) {
     const auto &lights = optix_launch_params.light;
     const auto &scene = optix_launch_params.scene;
@@ -62,9 +61,9 @@ static __device__ void SampleLight(
     light_dir = light_vec / light_dist;
     light_norm = norm;
     light_strength = lights.data[light_index].strength;
-    light_attenuation = max(norm.Dot(-light_dir), 0.0f) / light_dist_sqr;
 
-    sample_pdf = lights.data[light_index].at_probability / max(cross.Length() * 0.5f, 0.001f);
+    sample_pdf = lights.data[light_index].at_probability * light_dist_sqr
+        / max(cross.Length() * 0.5f * max(norm.Dot(-light_dir), 0.0f), 0.001f);
 }
 
 OPTIX_CLOSESTHIT(Empty)() {}
@@ -93,6 +92,7 @@ OPTIX_RAYGEN(Sample)() {
     const pcm::Vec4 albedo_emissive = fr.albedo_emissive_buffer[frame_index];
     const pcm::Vec4 pos_roughness = fr.pos_roughness_buffer[frame_index];
     const pcm::Vec4 norm_metallic = fr.norm_metallic_buffer[frame_index];
+    const uint32_t curr_id = fr.id_buffer[frame_index];
 
     const pcm::Vec3 pos = pcm::Vec3(pos_roughness);
     const pcm::Vec3 norm = pcm::Vec3(norm_metallic);
@@ -102,7 +102,7 @@ OPTIX_RAYGEN(Sample)() {
 
     const pcm::Vec3 view_dir = (cam.position - pos).Normalize();
 
-    if (norm.MagnitudeSqr() > 0.8f) {
+    if (curr_id != 0) {
         int prev_reservoir_index = -1;
         if (restir.config.temporal_reuse && restir.prev_reservoirs) {
             const pcm::Vec4 prev_uv_homo = cam.prev_proj_view * pcm::Vec4(pos, 1.0f);
@@ -112,7 +112,6 @@ OPTIX_RAYGEN(Sample)() {
                 const int prev_y = (prev_uv_ndc.Y() + 1.0f) * 0.5f * fr.height;
                 if (prev_x >= 0 && prev_x < fr.width && prev_y >= 0 && prev_y < fr.height) {
                     const int prev_frame_index = prev_x + prev_y * fr.width;
-                    const uint32_t curr_id = fr.id_buffer[frame_index];
                     const uint32_t prev_id = fr.prev_id_buffer[prev_frame_index];
                     if (curr_id == prev_id) {
                         prev_reservoir_index = prev_frame_index * restir.config.num_eveluated_samples;
@@ -130,7 +129,6 @@ OPTIX_RAYGEN(Sample)() {
                 pcm::Vec3 light_dir;
                 float light_dist;
                 float light_pdf;
-                float light_attenuation;
                 SampleLight(
                     pos,
                     rng,
@@ -139,16 +137,14 @@ OPTIX_RAYGEN(Sample)() {
                     sample.light_norm,
                     sample.light_strength,
                     light_dist,
-                    light_pdf,
-                    light_attenuation
+                    light_pdf
                 );
 
-                const pcm::Vec3 attenuated_light_strength = sample.light_strength * light_attenuation;
                 sample.shade = Shade(
                     view_dir,
                     light_dir,
                     norm,
-                    attenuated_light_strength,
+                    sample.light_strength,
                     base_color,
                     roughness,
                     metallic
@@ -185,10 +181,7 @@ OPTIX_RAYGEN(Sample)() {
             );
 
             if (!shadow_payload.visibility) {
-                reservoir.w = 0.0f;
-                reservoir.weight_sum = 0.0f;
-                reservoir.out.shade = pcm::Vec3::Zero();
-                reservoir.out.shade_lum = 0.0f;
+                reservoir.Clear();
             } else if (prev_reservoir_index >= 0) {
                 Reservoir prev_reservoir = restir.prev_reservoirs[prev_reservoir_index + i];
                 const uint32_t clamped_num_samples = min(prev_reservoir.num_samples, 20 * reservoir.num_samples);
@@ -201,11 +194,6 @@ OPTIX_RAYGEN(Sample)() {
             }
 
             restir.reservoirs[reservoir_index + i] = reservoir;
-        }
-    } else {
-        for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
-            restir.reservoirs[reservoir_index + i].w = 0.0f;
-            restir.reservoirs[reservoir_index + i].num_samples = 0;
         }
     }
 }

@@ -22,15 +22,15 @@ struct Reservoir {
 #endif
     static Reservoir New() {
         Reservoir res;
-        res.weight_sum = 0.0f;
-        res.num_samples = 0;
-        res.w = 0.0f;
-        res.out.shade = pcm::Vec3::Zero();
-        res.out.shade_lum = 0.0f;
-        res.out.light_pos = pcm::Vec3::Zero();
-        res.out.light_norm = pcm::Vec3::Zero();
-        res.out.light_strength = pcm::Vec3::Zero();
+        memset(&res, 0, sizeof(Reservoir));
         return res;
+    }
+
+#ifdef __CUDACC__
+    __device__
+#endif
+    void Clear() {
+        memset(this, 0, sizeof(Reservoir));
     }
 
 #ifdef __CUDACC__

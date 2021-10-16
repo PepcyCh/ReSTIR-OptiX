@@ -50,7 +50,7 @@ void main() {
 
     const vec4 mr_tex = texture(metallic_roughness_tex, v_uv);
     const float roughness = mat.roughness * mr_tex.y;
-    const float metallic = mat.roughness * mr_tex.z;
+    const float metallic = mat.metallic * mr_tex.z;
     o_pos_roughness.w = roughness;
     o_norm_metallic.w = metallic;
 

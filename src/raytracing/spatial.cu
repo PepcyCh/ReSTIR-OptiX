@@ -32,6 +32,7 @@ OPTIX_RAYGEN(Spatial)() {
     const pcm::Vec4 albedo_emissive = fr.albedo_emissive_buffer[frame_index];
     const pcm::Vec4 pos_roughness = fr.pos_roughness_buffer[frame_index];
     const pcm::Vec4 norm_metallic = fr.norm_metallic_buffer[frame_index];
+    const uint32_t curr_id = fr.id_buffer[frame_index];
 
     const pcm::Vec3 pos = pcm::Vec3(pos_roughness);
     const pcm::Vec3 norm = pcm::Vec3(norm_metallic);
@@ -46,7 +47,7 @@ OPTIX_RAYGEN(Spatial)() {
     RandomNumberGenerator rng;
     rng.Seed(frame_index + fr.curr_time);
 
-    if (norm.MagnitudeSqr() > 0.8f) {
+    if (curr_id != 0) {
         for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
             Reservoir reservoir = restir.prev_reservoirs[reservoir_index + i];
 
@@ -73,18 +74,12 @@ OPTIX_RAYGEN(Spatial)() {
 
                 Reservoir neighbor = restir.prev_reservoirs[neighbor_reservoir_index + i];
 
-                const pcm::Vec3 light_vec = neighbor.out.light_pos - pos;
-                const float light_dist_sqr = light_vec.MagnitudeSqr();
-                const float light_dist = sqrt(light_dist_sqr);
-                const pcm::Vec3 light_dir = light_vec / light_dist;
-                const float light_attenuation =
-                    max(neighbor.out.light_norm.Dot(-light_dir), 0.0f) / light_dist_sqr;
-                const pcm::Vec3 attenuated_light_strength = neighbor.out.light_strength * light_attenuation;
+                const pcm::Vec3 light_dir = (neighbor.out.light_pos - pos).Normalize();
                 neighbor.out.shade = Shade(
                     view_dir,
                     light_dir,
                     norm,
-                    attenuated_light_strength,
+                    neighbor.out.light_strength,
                     base_color,
                     roughness,
                     metallic
@@ -96,11 +91,6 @@ OPTIX_RAYGEN(Spatial)() {
 
             reservoir.CalcW();
             restir.reservoirs[reservoir_index + i] = reservoir;
-        }
-    } else {
-        for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
-            restir.reservoirs[reservoir_index + i].w = 0.0f;
-            restir.reservoirs[reservoir_index + i].num_samples = 0;
         }
     }
 }

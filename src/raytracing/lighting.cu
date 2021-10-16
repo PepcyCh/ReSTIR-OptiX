@@ -92,6 +92,7 @@ OPTIX_RAYGEN(Lighting)() {
     const pcm::Vec4 albedo_emissive = fr.albedo_emissive_buffer[frame_index];
     const pcm::Vec4 pos_roughness = fr.pos_roughness_buffer[frame_index];
     const pcm::Vec4 norm_metallic = fr.norm_metallic_buffer[frame_index];
+    const uint32_t curr_id = fr.id_buffer[frame_index];
 
     const pcm::Vec3 pos = pcm::Vec3(pos_roughness);
     const pcm::Vec3 norm = pcm::Vec3(norm_metallic);
@@ -102,7 +103,7 @@ OPTIX_RAYGEN(Lighting)() {
 
     const pcm::Vec3 view_dir = (cam.position - pos).Normalize();
 
-    if (norm.MagnitudeSqr() > 0.8f) {
+    if (curr_id != 0) {
         if (is_emissive) {
             fr.color_buffer[frame_index] = pcm::Vec4(base_color, 1.0f);
         } else {
@@ -114,9 +115,9 @@ OPTIX_RAYGEN(Lighting)() {
             color /= restir.config.num_eveluated_samples;
             fr.color_buffer[frame_index] = pcm::Vec4(color, 1.0f);
             // TODO - debug
-            // if (isnan(color.X()) || isnan(color.Y()) || isnan(color.Z())) {
-            //     fr.color_buffer[frame_index] = pcm::Vec4(0.0f, 0.0f, 1.0f, 1.0f);
-            // }
+            if (isnan(color.X()) || isnan(color.Y()) || isnan(color.Z())) {
+                fr.color_buffer[frame_index] = pcm::Vec4(0.0f, 0.0f, 1.0f, 1.0f);
+            }
         }
     } else {
         fr.color_buffer[frame_index] = pcm::Vec4::Zero();
