@@ -1,0 +1,12 @@
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        camera.cpp
+        camera.hpp
+        check_macros.hpp
+        frame_counter.cpp
+        frame_counter.hpp
+        light_data.hpp
+        lights.cpp
+        lights.hpp
+        restir_config.hpp
+)

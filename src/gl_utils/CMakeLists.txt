@@ -1,0 +1,10 @@
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        framebuffer.cpp
+        framebuffer.hpp
+        shader.cpp
+        shader.hpp
+        texture.cpp
+        texture.hpp
+        uniforms.hpp
+)

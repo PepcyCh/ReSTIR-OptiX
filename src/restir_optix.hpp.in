@@ -1,0 +1,7 @@
+#pragma once
+
+#include <string_view>
+
+inline constexpr std::string_view kProjectRootDir = "${PROJECT_SOURCE_DIR}";
+inline constexpr std::string_view kProjectSourceDir = "${PROJECT_SOURCE_DIR}/src";
+inline constexpr std::string_view kProjectAssetsDir = "${PROJECT_SOURCE_DIR}/assets";

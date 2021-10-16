@@ -1,0 +1,10 @@
+target_sources(${PROJECT_NAME}
+    PRIVATE
+        cuda_buffer.cpp
+        cuda_buffer.hpp
+        interop_buffer.cpp
+        interop_buffer.hpp
+        optix_program.cpp
+        optix_program.hpp
+        optix_sbt.hpp
+)

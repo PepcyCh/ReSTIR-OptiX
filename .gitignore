@@ -1,0 +1,16 @@
+.vs
+.vscode
+.idea
+.cache
+
+.DS_Store
+
+*.natvis
+*.ptx
+
+build*
+cmake-build*
+out
+
+assets
+restir_optix.hpp
