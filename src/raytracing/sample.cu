@@ -60,7 +60,7 @@ static __device__ void SampleLight(
     light_dist = sqrt(light_dist_sqr);
     light_dir = light_vec / light_dist;
     light_norm = norm;
-    light_strength = lights.data[light_index].strength;
+    light_strength = lights.data[light_index].strength * optix_launch_params.light_strength_scale;
 
     sample_pdf = lights.data[light_index].at_probability * light_dist_sqr
         / max(cross.Length() * 0.5f * max(norm.Dot(-light_dir), 0.0f), 0.001f);
@@ -154,35 +154,40 @@ OPTIX_RAYGEN(Sample)() {
                 reservoir.Update(sample, sample.shade_lum / max(light_pdf, 0.001f), 1, rng);
             }
 
-            RayPayload shadow_payload;
-            shadow_payload.visibility = false;
+            if (restir.config.visibility_reuse) {
+                RayPayload shadow_payload;
+                shadow_payload.visibility = false;
 
-            const pcm::Vec3 light_vec = reservoir.out.light_pos - pos;
-            const float light_dist = light_vec.Length();
-            const pcm::Vec3 light_dir = light_vec / light_dist;
+                const pcm::Vec3 light_vec = reservoir.out.light_pos - pos;
+                const float light_dist = light_vec.Length();
+                const pcm::Vec3 light_dir = light_vec / light_dist;
 
-            RayDesc ray;
-            ray.origin = pos;
-            ray.direction = light_dir;
-            ray.t_min = 0.001f;
-            ray.t_max = light_dist - 0.001f;
+                RayDesc ray;
+                ray.origin = pos;
+                ray.direction = light_dir;
+                ray.t_min = 0.001f;
+                ray.t_max = light_dist - 0.001f;
 
-            TraceRay(
-                optix_launch_params.scene.traversable,
-                OPTIX_RAY_FLAG_DISABLE_ANYHIT
-                    | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
-                    | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
-                0xff,
-                0,
-                1,
-                0,
-                ray,
-                &shadow_payload
-            );
+                TraceRay(
+                    optix_launch_params.scene.traversable,
+                    OPTIX_RAY_FLAG_DISABLE_ANYHIT
+                        | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
+                        | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
+                    0xff,
+                    0,
+                    1,
+                    0,
+                    ray,
+                    &shadow_payload
+                );
 
-            if (!shadow_payload.visibility) {
-                reservoir.Clear();
-            } else if (prev_reservoir_index >= 0) {
+                if (!shadow_payload.visibility) {
+                    reservoir.w = 0.0f;
+                    reservoir.weight_sum = 0.0f;
+                }
+            }
+            
+            if (prev_reservoir_index >= 0) {
                 Reservoir prev_reservoir = restir.prev_reservoirs[prev_reservoir_index + i];
                 const uint32_t clamped_num_samples = min(prev_reservoir.num_samples, 20 * reservoir.num_samples);
                 const float weight = prev_reservoir.out.shade_lum * prev_reservoir.w * clamped_num_samples;

@@ -51,13 +51,17 @@ OPTIX_RAYGEN(Spatial)() {
         for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
             Reservoir reservoir = restir.prev_reservoirs[reservoir_index + i];
 
+            uint32_t spatial_samples[8];
+            uint8_t valid_spatial_samples = 0;
+            uint32_t initial_num_samples = reservoir.num_samples;
+
             for (uint8_t j = 0; j < restir.config.num_spatial_samples; j++) {
                 const int dx = rng.NextInt(-restir.config.spatial_radius, restir.config.spatial_radius + 1);
                 const int dy = rng.NextInt(-restir.config.spatial_radius, restir.config.spatial_radius + 1);
                 const int x = max(min(ix + dx, fr.width - 1), 0);
                 const int y = max(min(iy + dy, fr.height - 1), 0);
-                const int neighbor_frame_index = x + y * fr.width;
-                const int neighbor_reservoir_index = neighbor_frame_index * restir.config.num_eveluated_samples;
+                const uint32_t neighbor_frame_index = x + y * fr.width;
+                const uint32_t neighbor_reservoir_index = neighbor_frame_index * restir.config.num_eveluated_samples;
 
                 const pcm::Vec3 neighbor_pos = pcm::Vec3(fr.pos_roughness_buffer[neighbor_frame_index]);
                 const pcm::Vec3 neighbor_norm = pcm::Vec3(fr.norm_metallic_buffer[neighbor_frame_index]);
@@ -87,8 +91,60 @@ OPTIX_RAYGEN(Spatial)() {
                 neighbor.out.shade_lum = Luminance(neighbor.out.shade);
                 const float weight = neighbor.out.shade_lum * neighbor.w * neighbor.num_samples;
                 reservoir.Update(neighbor.out, weight, neighbor.num_samples, rng);
+
+                spatial_samples[valid_spatial_samples] = neighbor_frame_index;
+                ++valid_spatial_samples;
             }
 
+            if (restir.config.unbiased) {
+                reservoir.num_samples = initial_num_samples;
+                for (uint8_t j = 0; j < valid_spatial_samples; j++) {
+                    const pcm::Vec3 neighbor_pos = pcm::Vec3(fr.pos_roughness_buffer[spatial_samples[j]]);
+                    const pcm::Vec3 neighbor_norm = pcm::Vec3(fr.norm_metallic_buffer[spatial_samples[j]]);
+
+                    const pcm::Vec3 neighbor_light_vec = reservoir.out.light_pos - neighbor_pos;
+                    const float neighbor_light_dist = neighbor_light_vec.Length();
+                    const pcm::Vec3 neighbor_light = neighbor_light_vec / neighbor_light_dist;
+
+                    if (neighbor_light.Dot(neighbor_norm) <= 0.0f) {
+                        continue;
+                    }
+
+                    /*
+                    if (restir.config.visibility_reuse) {
+                        RayPayload shadow_payload;
+                        shadow_payload.visibility = false;
+
+                        RayDesc ray;
+                        ray.origin = neighbor_pos;
+                        ray.direction = neighbor_light;
+                        ray.t_min = 0.001f;
+                        ray.t_max = neighbor_light_dist - 0.001f;
+
+                        TraceRay(
+                            optix_launch_params.scene.traversable,
+                            OPTIX_RAY_FLAG_DISABLE_ANYHIT
+                                | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
+                                | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
+                            0xff,
+                            0,
+                            1,
+                            0,
+                            ray,
+                            &shadow_payload
+                        );
+
+                        if (!shadow_payload.visibility) {
+                            continue;
+                        }
+                    }
+                    */
+
+                    reservoir.num_samples += restir.prev_reservoirs[spatial_samples[j]
+                        * restir.config.num_eveluated_samples + i].num_samples;
+                }
+            }
+            
             reservoir.CalcW();
             restir.reservoirs[reservoir_index + i] = reservoir;
         }

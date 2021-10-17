@@ -4,7 +4,9 @@ Reproduce [Spatiotemporal Reservoir Resampling for Real-Time Ray Tracing with Dy
 
 This program will load a gltf scene (path is currently hard coded) and render it using ReSTIR. Emissive meshes will be treated as light sources. A simple ImGui window can be used to modify some parameters of ReSTIR.
 
-Currently, only baised version is implemented and environment map is not supported.
+Environment map is currently not supported.
+
+Unbiased version is now implemented with some bus when using with visibility reuse together;
 
 ## Dependencies
 
@@ -16,6 +18,7 @@ One may download and install these through site of NVIDIA.
 These dependencies are added as git submodules.
 
 * [tinygltf](https://github.com/syoyo/tinygltf)
+* [mikktspace](https://github.com/mmikk/MikkTSpace)
 * [pep-cuda-math](https://github.com/PepcyCh/pep-cuda-math)
 
 One may install these dependencies manually or use [vcpkg](https://github.com/microsoft/vcpkg).

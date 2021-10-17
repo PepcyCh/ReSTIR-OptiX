@@ -9,5 +9,6 @@ struct RestirConfig {
     uint8_t spatial_radius;
     uint8_t num_spatial_reuse_pass;
     bool temporal_reuse;
-    bool unbaised;
+    bool visibility_reuse;
+    bool unbiased;
 };

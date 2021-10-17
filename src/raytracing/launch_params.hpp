@@ -42,6 +42,8 @@ struct LaunchParams {
         Reservoir *prev_reservoirs;
         Reservoir *reservoirs;
     } restir;
+
+    float light_strength_scale;
 };
 
 enum class RayType : uint32_t {

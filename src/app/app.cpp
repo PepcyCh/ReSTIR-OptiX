@@ -141,14 +141,17 @@ void RestirApp::InitializeBasic(const RestirAppConfig &config) {
     restir_config_.num_spatial_samples = 5;
     restir_config_.num_spatial_reuse_pass = 2;
     restir_config_.spatial_radius = 30;
+    restir_config_.visibility_reuse = true;
     restir_config_.temporal_reuse = true;
-    restir_config_.unbaised = false;
+    restir_config_.unbiased = false;
     optix_launch_params_.restir.config = restir_config_;
 
     const size_t reserviors_buffer_size = sizeof(Reservoir) * restir_config_.num_eveluated_samples
         * window_width_ * window_height_;
     reservoirs_buffer_[0].Alloc(reserviors_buffer_size);
     reservoirs_buffer_[1].Alloc(reserviors_buffer_size);
+
+    optix_launch_params_.light_strength_scale = config.light_strength_scale;
 }
 
 void RestirApp::InitializeGl() {
@@ -687,7 +690,6 @@ void RestirApp::Render() {
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
     glBindVertexBuffer(0, 0, 0, 0);
     glBindTextureUnit(0, color_buffer_tex_.id);
-    // glBindTextureUnit(0, gbuffer_fb_->color_attachments[3].id);
     glDrawArrays(GL_TRIANGLES, 0, 3);
 }
 
@@ -728,12 +730,14 @@ void RestirApp::ImguiConfigRestir() {
     restir_config_.num_spatial_samples = temp_num_spatial_samples;
 
     int temp_spatial_radius = restir_config_.spatial_radius;
-    ImGui::SliderInt("# spatial radius", &temp_spatial_radius, 1, 64);
+    ImGui::SliderInt("# spatial radius", &temp_spatial_radius, 0, 64);
     restir_config_.spatial_radius = temp_spatial_radius;
+
+    ImGui::Checkbox("visibility reuse", &restir_config_.visibility_reuse);
 
     ImGui::Checkbox("temporal reuse", &restir_config_.temporal_reuse);
 
-    ImGui::Checkbox("unbaised spatial reuse", &restir_config_.unbaised);
+    ImGui::Checkbox("unbiased spatial reuse", &restir_config_.unbiased);
 
     optix_launch_params_.restir.config = restir_config_;
 }

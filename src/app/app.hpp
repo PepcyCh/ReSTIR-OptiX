@@ -18,10 +18,11 @@
 #include "scene/scene.hpp"
 
 struct RestirAppConfig {
-    int width;
-    int height;
-    std::string title;
+    int width = 1200;
+    int height = 900;
+    std::string title = "ReSTIR-OptiX";
     std::string scene_path;
+    float light_strength_scale = 1.0f;
 };
 
 class RestirApp {

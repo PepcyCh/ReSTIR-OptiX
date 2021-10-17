@@ -110,14 +110,43 @@ OPTIX_RAYGEN(Lighting)() {
             pcm::Vec3 color = pcm::Vec3::Zero();
             for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
                 const Reservoir &reservoir = restir.reservoirs[reservoir_index + i];
-                color += reservoir.out.shade * reservoir.w;
+
+                RayPayload shadow_payload;
+                shadow_payload.visibility = false;
+
+                const pcm::Vec3 light_vec = reservoir.out.light_pos - pos;
+                const float light_dist = light_vec.Length();
+                const pcm::Vec3 light_dir = light_vec / light_dist;
+
+                RayDesc ray;
+                ray.origin = pos;
+                ray.direction = light_dir;
+                ray.t_min = 0.001f;
+                ray.t_max = light_dist - 0.001f;
+
+                TraceRay(
+                    optix_launch_params.scene.traversable,
+                    OPTIX_RAY_FLAG_DISABLE_ANYHIT
+                        | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
+                        | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
+                    0xff,
+                    0,
+                    1,
+                    0,
+                    ray,
+                    &shadow_payload
+                );
+
+                if (shadow_payload.visibility) {
+                    color += reservoir.out.shade * reservoir.w;
+                }
             }
             color /= restir.config.num_eveluated_samples;
             fr.color_buffer[frame_index] = pcm::Vec4(color, 1.0f);
             // TODO - debug
-            if (isnan(color.X()) || isnan(color.Y()) || isnan(color.Z())) {
-                fr.color_buffer[frame_index] = pcm::Vec4(0.0f, 0.0f, 1.0f, 1.0f);
-            }
+            // if (isnan(color.X()) || isnan(color.Y()) || isnan(color.Z())) {
+            //     fr.color_buffer[frame_index] = pcm::Vec4(0.0f, 0.0f, 1.0f, 1.0f);
+            // }
         }
     } else {
         fr.color_buffer[frame_index] = pcm::Vec4::Zero();
