@@ -9,63 +9,6 @@ struct RayPayload {
     bool visibility;
 };
 
-/*
-static __device__ void SampleLight(
-    const pcm::Vec3 &pos,
-    RandomNumberGenerator &rng,
-    pcm::Vec3 &light_dir,
-    pcm::Vec3 &light_pos,
-    pcm::Vec3 &light_norm,
-    pcm::Vec3 &light_strength,
-    float &light_dist,
-    float &sample_pdf,
-    float &light_attenuation
-) {
-    const auto &lights = optix_launch_params.light;
-    const auto &scene = optix_launch_params.scene;
-
-    float val = rng.NextFloat(0.0f, lights.light_count);
-    uint32_t light_index = min(uint32_t(val), lights.light_count - 1);
-    val -= light_index;
-    if (val > lights.data[light_index].at_probability * lights.light_count) {
-        light_index = lights.data[light_index].at_another_index;
-    }
-
-    const uint32_t vertex_offset = lights.data[light_index].vertex_offset;
-    const uint32_t index_offset = lights.data[light_index].index_offset;
-    const uint32_t i0 = scene.indices[index_offset];
-    const uint32_t i1 = scene.indices[index_offset + 1];
-    const uint32_t i2 = scene.indices[index_offset + 2];
-    const pcm::Vec3 p0 = scene.positions[vertex_offset + i0];
-    const pcm::Vec3 p1 = scene.positions[vertex_offset + i1];
-    const pcm::Vec3 p2 = scene.positions[vertex_offset + i2];
-    const pcm::Vec3 n0 = scene.normals[vertex_offset + i0];
-    const pcm::Vec3 n1 = scene.normals[vertex_offset + i1];
-    const pcm::Vec3 n2 = scene.normals[vertex_offset + i2];
-    const pcm::Vec3 cross = (p1 - p0).Cross(p2 - p0);
-
-    const float r0 = rng.NextFloat(0.0f, 1.0f);
-    const float r0_sqrt = sqrt(r0);
-    const float r1 = rng.NextFloat(0.0f, 1.0f);
-
-    const float u = 1.0f - r0_sqrt;
-    const float v = r0_sqrt * (1.0f - r1);
-    const float w = 1.0f - u - v;
-    light_pos = u * p0 + v * p1 + w * p2;
-    const pcm::Vec3 norm = u * n0 + v * n1 + w * n2;
-
-    const pcm::Vec3 light_vec = light_pos - pos;
-    const float light_dist_sqr = light_vec.MagnitudeSqr();
-    light_dist = sqrt(light_dist_sqr);
-    light_dir = light_vec / light_dist;
-    light_norm = norm;
-    light_strength = lights.data[light_index].strength;
-    light_attenuation = fmax(norm.Dot(-light_dir), 0.0f) / light_dist_sqr;
-
-    sample_pdf = lights.data[light_index].at_probability / (cross.Length() * 0.5f * light_attenuation);
-}
-*/
-
 OPTIX_CLOSESTHIT(Empty)() {}
 
 OPTIX_ANYHIT(Empty)() {}
@@ -111,33 +54,38 @@ OPTIX_RAYGEN(Lighting)() {
             for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
                 const Reservoir &reservoir = restir.reservoirs[reservoir_index + i];
 
-                RayPayload shadow_payload;
-                shadow_payload.visibility = false;
+                if (!restir.config.visibility_reuse
+                    || (restir.config.num_spatial_reuse_pass > 0 && !restir.config.unbiased)) {
+                    RayPayload shadow_payload;
+                    shadow_payload.visibility = false;
 
-                const pcm::Vec3 light_vec = reservoir.out.light_pos - pos;
-                const float light_dist = light_vec.Length();
-                const pcm::Vec3 light_dir = light_vec / light_dist;
+                    const pcm::Vec3 light_vec = reservoir.out.light_pos - pos;
+                    const float light_dist = light_vec.Length();
+                    const pcm::Vec3 light_dir = light_vec / light_dist;
 
-                RayDesc ray;
-                ray.origin = pos;
-                ray.direction = light_dir;
-                ray.t_min = 0.001f;
-                ray.t_max = light_dist - 0.001f;
+                    RayDesc ray;
+                    ray.origin = pos;
+                    ray.direction = light_dir;
+                    ray.t_min = 0.001f;
+                    ray.t_max = light_dist - 0.001f;
 
-                TraceRay(
-                    optix_launch_params.scene.traversable,
-                    OPTIX_RAY_FLAG_DISABLE_ANYHIT
-                        | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
-                        | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
-                    0xff,
-                    0,
-                    1,
-                    0,
-                    ray,
-                    &shadow_payload
-                );
+                    TraceRay(
+                        optix_launch_params.scene.traversable,
+                        OPTIX_RAY_FLAG_DISABLE_ANYHIT
+                            | OPTIX_RAY_FLAG_DISABLE_CLOSESTHIT
+                            | OPTIX_RAY_FLAG_TERMINATE_ON_FIRST_HIT,
+                        0xff,
+                        0,
+                        1,
+                        0,
+                        ray,
+                        &shadow_payload
+                    );
 
-                if (shadow_payload.visibility) {
+                    if (shadow_payload.visibility) {
+                        color += reservoir.out.shade * reservoir.w;
+                    }
+                } else {
                     color += reservoir.out.shade * reservoir.w;
                 }
             }

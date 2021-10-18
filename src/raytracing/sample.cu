@@ -56,14 +56,12 @@ static __device__ void SampleLight(
     const pcm::Vec3 norm = (u * n0 + v * n1 + w * n2).Normalize();
 
     const pcm::Vec3 light_vec = light_pos - pos;
-    const float light_dist_sqr = light_vec.MagnitudeSqr();
-    light_dist = sqrt(light_dist_sqr);
+    light_dist = light_vec.Length();
     light_dir = light_vec / light_dist;
     light_norm = norm;
     light_strength = lights.data[light_index].strength * optix_launch_params.light_strength_scale;
 
-    sample_pdf = lights.data[light_index].at_probability * light_dist_sqr
-        / max(cross.Length() * 0.5f * max(norm.Dot(-light_dir), 0.0f), 0.001f);
+    sample_pdf = lights.data[light_index].at_probability / max(cross.Length() * 0.5f, 0.001f);
 }
 
 OPTIX_CLOSESTHIT(Empty)() {}
@@ -140,11 +138,12 @@ OPTIX_RAYGEN(Sample)() {
                     light_pdf
                 );
 
+                const float atten = max(sample.light_norm.Dot(-light_dir), 0.0f) / max(light_dist * light_dist, 0.001f);
                 sample.shade = Shade(
                     view_dir,
                     light_dir,
                     norm,
-                    sample.light_strength,
+                    sample.light_strength * atten,
                     base_color,
                     roughness,
                     metallic
@@ -192,11 +191,9 @@ OPTIX_RAYGEN(Sample)() {
                 const uint32_t clamped_num_samples = min(prev_reservoir.num_samples, 20 * reservoir.num_samples);
                 const float weight = prev_reservoir.out.shade_lum * prev_reservoir.w * clamped_num_samples;
                 reservoir.Update(prev_reservoir.out, weight, clamped_num_samples, rng);
-
-                reservoir.CalcW();
-            } else {
-                reservoir.CalcW();
             }
+
+            reservoir.CalcW();
 
             restir.reservoirs[reservoir_index + i] = reservoir;
         }

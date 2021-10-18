@@ -6,7 +6,7 @@ This program will load a gltf scene (path is currently hard coded) and render it
 
 Environment map is currently not supported.
 
-Unbiased version is now implemented with some bus when using with visibility reuse together;
+There may be some problems when using both unbiased spatial reuse and visibility reuse. It is now unbiased with firefly but maybe I traced twice the rays to achieve this. MIS unbiased spatial reuse is not implemented yet.
 
 ## Dependencies
 
