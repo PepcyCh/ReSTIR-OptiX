@@ -1,9 +1,9 @@
-[submodule ".\\external\\tinygltf"]
-	path = .\\external\\tinygltf
+[submodule "external/tinygltf"]
+	path = external/tinygltf
 	url = https://github.com/syoyo/tinygltf
-[submodule ".\\external\\pep-cuda-math"]
-	path = .\\external\\pep-cuda-math
+[submodule "external/pep-cuda-math"]
+	path = external/pep-cuda-math
 	url = https://github.com/PepcyCh/pep-cuda-math
-[submodule ".\\external\\mikktspace"]
-	path = .\\external\\mikktspace
+[submodule "external/mikktspace"]
+	path = external/mikktspace
 	url = https://github.com/mmikk/MikkTSpace

@@ -2,7 +2,7 @@
 
 Reproduce [Spatiotemporal Reservoir Resampling for Real-Time Ray Tracing with Dynamic Direct Lighting](https://research.nvidia.com/publication/2020-07_Spatiotemporal-reservoir-resampling) in OptiX.
 
-This program will load a gltf scene (path is currently hard coded) and render it using ReSTIR. Emissive meshes will be treated as light sources. A simple ImGui window can be used to modify some parameters of ReSTIR.
+This program will load a gltf scene (path is passed through command line arguments) and render it using ReSTIR. Emissive meshes will be treated as light sources. A simple ImGui window can be used to modify some parameters of ReSTIR.
 
 Environment map is currently not supported.
 
