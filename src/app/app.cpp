@@ -144,6 +144,7 @@ void RestirApp::InitializeBasic(const RestirAppConfig &config) {
     restir_config_.visibility_reuse = true;
     restir_config_.temporal_reuse = true;
     restir_config_.unbiased = false;
+    restir_config_.mis_spatial_reuse = false;
     optix_launch_params_.restir.config = restir_config_;
 
     const size_t reserviors_buffer_size = sizeof(Reservoir) * restir_config_.num_eveluated_samples
@@ -738,6 +739,8 @@ void RestirApp::ImguiConfigRestir() {
     ImGui::Checkbox("temporal reuse", &restir_config_.temporal_reuse);
 
     ImGui::Checkbox("unbiased spatial reuse", &restir_config_.unbiased);
+
+    ImGui::Checkbox("mis spatial reuse", &restir_config_.mis_spatial_reuse);
 
     optix_launch_params_.restir.config = restir_config_;
 }

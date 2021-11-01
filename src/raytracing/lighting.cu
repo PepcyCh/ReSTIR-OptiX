@@ -51,11 +51,10 @@ OPTIX_RAYGEN(Lighting)() {
             fr.color_buffer[frame_index] = pcm::Vec4(base_color, 1.0f);
         } else {
             pcm::Vec3 color = pcm::Vec3::Zero();
-            for (uint8_t i = 0; i < restir.config.num_eveluated_samples; i++) {
+            for (uint32_t i = 0; i < restir.config.num_eveluated_samples; i++) {
                 const Reservoir &reservoir = restir.reservoirs[reservoir_index + i];
 
-                if (!restir.config.visibility_reuse
-                    || (restir.config.num_spatial_reuse_pass > 0 && !restir.config.unbiased)) {
+                if (!restir.config.visibility_reuse) {
                     RayPayload shadow_payload;
                     shadow_payload.visibility = false;
 

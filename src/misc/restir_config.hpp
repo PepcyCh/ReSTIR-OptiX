@@ -11,4 +11,5 @@ struct RestirConfig {
     bool temporal_reuse;
     bool visibility_reuse;
     bool unbiased;
+    bool mis_spatial_reuse;
 };
