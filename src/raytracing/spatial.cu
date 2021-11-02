@@ -54,6 +54,8 @@ OPTIX_RAYGEN(Spatial)() {
             uint32_t spatial_samples[8];
             uint32_t valid_spatial_samples = 0;
             uint32_t initial_num_samples = reservoir.num_samples;
+            float initial_weight_sum = reservoir.weight_sum;
+            float samples_weight[8];
 
             for (uint8_t j = 0; j < restir.config.num_spatial_samples; j++) {
                 const int dx = rng.NextInt(-restir.config.spatial_radius, restir.config.spatial_radius + 1);
@@ -98,9 +100,12 @@ OPTIX_RAYGEN(Spatial)() {
                 reservoir.Update(neighbor.out, weight, neighbor.num_samples, rng);
 
                 spatial_samples[valid_spatial_samples] = neighbor_frame_index;
+                samples_weight[valid_spatial_samples] = weight;
                 ++valid_spatial_samples;
             }
 
+            float shade_lum_sum = reservoir.out.shade_lum * initial_num_samples;
+            float mis_weight_sum = reservoir.out.shade_lum * initial_weight_sum;
             if (restir.config.unbiased) {
                 reservoir.num_samples = initial_num_samples;
                 for (uint32_t j = 0; j < valid_spatial_samples; j++) {
@@ -151,6 +156,30 @@ OPTIX_RAYGEN(Spatial)() {
 
                     const uint32_t neighbor_num_samples = restir.prev_reservoirs[spatial_samples[j]
                         * restir.config.num_eveluated_samples + i].num_samples;
+
+                    if (restir.config.mis_spatial_reuse) {
+                        const float atten = reservoir.out.light_norm.Dot(-neighbor_light_dir)
+                            / max(neighbor_light_dist_sqr, 0.001f);
+
+                        const pcm::Vec3 neighbor_view_dir = (cam.position - neighbor_pos).Normalize();
+                        const pcm::Vec3 neighbor_base_color = pcm::Vec3(fr.albedo_emissive_buffer[spatial_samples[j]]);
+                        const float neighbor_roughness = neighbor_pos_roughness.W();
+                        const float neighbor_metallic = neighbor_norm_metallic.W();
+
+                        const pcm::Vec3 shade = Shade(
+                            neighbor_view_dir,
+                            neighbor_light_dir,
+                            neighbor_norm,
+                            reservoir.out.light_strength * atten,
+                            neighbor_base_color,
+                            neighbor_roughness,
+                            neighbor_metallic
+                        );
+                        const float shade_lum = Luminance(shade);
+                        shade_lum_sum += shade_lum * neighbor_num_samples;
+                        mis_weight_sum += shade_lum * samples_weight[j];
+                    }
+
                     reservoir.num_samples += neighbor_num_samples;
                 }
             }
@@ -191,6 +220,9 @@ OPTIX_RAYGEN(Spatial)() {
             if (shadowed) {
                 reservoir.w = 0.0f;
                 reservoir.weight_sum = 0.0f;
+            } else if (restir.config.unbiased && restir.config.mis_spatial_reuse) {
+                reservoir.weight_sum = mis_weight_sum;
+                reservoir.w = reservoir.weight_sum / max(reservoir.out.shade_lum * shade_lum_sum, 0.001f);
             } else {
                 reservoir.CalcW();
             }
