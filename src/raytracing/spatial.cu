@@ -54,8 +54,8 @@ OPTIX_RAYGEN(Spatial)() {
             uint32_t spatial_samples[8];
             uint32_t valid_spatial_samples = 0;
             uint32_t initial_num_samples = reservoir.num_samples;
-            float initial_weight_sum = reservoir.weight_sum;
-            float samples_weight[8];
+            float samples_original_shade_lum[8];
+            int final_sample = -1;
 
             for (uint8_t j = 0; j < restir.config.num_spatial_samples; j++) {
                 const int dx = rng.NextInt(-restir.config.spatial_radius, restir.config.spatial_radius + 1);
@@ -80,6 +80,8 @@ OPTIX_RAYGEN(Spatial)() {
 
                 Reservoir neighbor = restir.prev_reservoirs[neighbor_reservoir_index + i];
 
+                samples_original_shade_lum[valid_spatial_samples] = neighbor.out.shade_lum;
+
                 const pcm::Vec3 light_vec = neighbor.out.light_pos - pos;
                 const float light_dist_sqr = light_vec.MagnitudeSqr();
                 const float light_dist = sqrt(light_dist_sqr);
@@ -97,15 +99,17 @@ OPTIX_RAYGEN(Spatial)() {
                 );
                 neighbor.out.shade_lum = Luminance(neighbor.out.shade);
                 const float weight = neighbor.out.shade_lum * neighbor.w * neighbor.num_samples;
-                reservoir.Update(neighbor.out, weight, neighbor.num_samples, rng);
+                if (reservoir.Update(neighbor.out, weight, neighbor.num_samples, rng)) {
+                    final_sample = valid_spatial_samples;
+                }
 
                 spatial_samples[valid_spatial_samples] = neighbor_frame_index;
-                samples_weight[valid_spatial_samples] = weight;
                 ++valid_spatial_samples;
             }
 
             float shade_lum_sum = reservoir.out.shade_lum * initial_num_samples;
-            float mis_weight_sum = reservoir.out.shade_lum * initial_weight_sum;
+            float shade_lum_sample = final_sample == -1 ? reservoir.out.shade_lum
+                : samples_original_shade_lum[final_sample];
             if (restir.config.unbiased) {
                 reservoir.num_samples = initial_num_samples;
                 for (uint32_t j = 0; j < valid_spatial_samples; j++) {
@@ -148,7 +152,6 @@ OPTIX_RAYGEN(Spatial)() {
                         }
                     }
 
-                    // TODO - calc shade and do MIS
                     if (shadowed || neighbor_light_dir.Dot(neighbor_norm) <= 0.0f
                         || neighbor_light_dir.Dot(reservoir.out.light_norm) >= 0.0f) {
                         continue;
@@ -177,7 +180,6 @@ OPTIX_RAYGEN(Spatial)() {
                         );
                         const float shade_lum = Luminance(shade);
                         shade_lum_sum += shade_lum * neighbor_num_samples;
-                        mis_weight_sum += shade_lum * samples_weight[j];
                     }
 
                     reservoir.num_samples += neighbor_num_samples;
@@ -221,8 +223,8 @@ OPTIX_RAYGEN(Spatial)() {
                 reservoir.w = 0.0f;
                 reservoir.weight_sum = 0.0f;
             } else if (restir.config.unbiased && restir.config.mis_spatial_reuse) {
-                reservoir.weight_sum = mis_weight_sum;
-                reservoir.w = reservoir.weight_sum / max(reservoir.out.shade_lum * shade_lum_sum, 0.001f);
+                reservoir.w =
+                    reservoir.weight_sum * shade_lum_sample / max(reservoir.out.shade_lum * shade_lum_sum, 0.001f);
             } else {
                 reservoir.CalcW();
             }

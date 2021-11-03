@@ -36,7 +36,7 @@ struct Reservoir {
 #ifdef __CUDACC__
     __device__
 #endif
-    void Update(
+    bool Update(
         const ReservoirSample &sample,
         float weight,
         uint32_t num_new_samples,
@@ -46,6 +46,9 @@ struct Reservoir {
         num_samples += num_new_samples;
         if (rng.NextFloat(0.0f, 1.0f) < weight / fmax(weight_sum, 0.001f)) {
             out = sample;
+            return true;
+        } else {
+            return false;
         }
     }
 

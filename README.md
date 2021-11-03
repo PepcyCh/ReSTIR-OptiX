@@ -6,7 +6,7 @@ This program will load a gltf scene (path is passed through command line argumen
 
 Environment map is currently not supported.
 
-MIS unbiased spatial reuse is currently implemented with bugs (it seems that it is unbiased when there is only MIS spatial reuse).
+Maybe there are some bugs in implementation of MIS unbiased spatial reuse, the result looks worse.
 
 ## Dependencies
 
