@@ -61,4 +61,8 @@ Lights::Lights(const Scene *scene) {
 
         rich = ranges::find_if(u.begin() + rich, u.end(), [](float u) { return u > 1.0f; }) - u.begin();
     }
+
+    for (size_t i = 0; i < lights_.size(); i++) {
+        lights_[i].at_split = u[i];
+    }
 }

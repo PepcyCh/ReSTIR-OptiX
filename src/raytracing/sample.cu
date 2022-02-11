@@ -25,7 +25,7 @@ static __device__ void SampleLight(
     float val = rng.NextFloat(0.0f, lights.light_count);
     uint32_t light_index = min(uint32_t(val), lights.light_count - 1);
     val -= light_index;
-    if (val > lights.data[light_index].at_probability * lights.light_count) {
+    if (val > lights.data[light_index].at_split) {
         light_index = lights.data[light_index].at_another_index;
     }
 

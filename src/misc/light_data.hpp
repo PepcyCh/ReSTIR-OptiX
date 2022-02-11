@@ -10,4 +10,5 @@ struct LightData {
     uint32_t vertex_offset;
     int at_another_index;
     float at_probability;
+    float at_split;
 };
